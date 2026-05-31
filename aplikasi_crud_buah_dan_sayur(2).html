@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreshHub - CRUD Data Buah & Sayur</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome untuk Ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col transition-colors duration-150">
+
+    <!-- NOTIFIKASI TOAST -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <!-- LOADING SCREEN OVERLAY -->
+    <div id="api-loading-overlay" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-50 flex flex-col items-center justify-center">
+        <div class="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center gap-4 border border-slate-100 max-w-xs w-full">
+            <div class="relative w-12 h-12">
+                <div class="absolute inset-0 border-4 border-emerald-200 rounded-full"></div>
+                <div class="absolute inset-0 border-4 border-emerald-600 rounded-full border-t-transparent animate-spin"></div>
+            </div>
+            <p id="loading-text" class="text-sm font-semibold text-slate-700 text-center">Menghubungkan ke API...</p>
+        </div>
+    </div>
+
+    <!-- Halaman Autentikasi (Login/Register) -->
+    <div id="auth-screen" class="flex-1 flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100 transition-all">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 mb-4 text-2xl">
+                    <i class="fa-solid fa-leaf"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-900" id="auth-title">Masuk ke FreshHub</h1>
+                <p class="text-slate-500 mt-1 text-sm" id="auth-subtitle">Kelola stok buah & sayur segar Anda</p>
+            </div>
+
+            <!-- Form -->
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)">
+                <input type="hidden" id="auth-mode" value="login">
+                
+                <div class="space-y-4">
+                    <div id="name-field-group" class="hidden">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Nama Lengkap</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                <i class="fa-regular fa-user"></i>
+                            </span>
+                            <input type="text" id="auth-name" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition" placeholder="Nama Anda">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Username / Email</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                <i class="fa-regular fa-envelope"></i>
+                            </span>
+                            <input type="text" id="auth-username" required class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition" placeholder="admin / user@mail.com">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Kata Sandi</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                <i class="fa-solid fa-lock"></i>
+                            </span>
+                            <input type="password" id="auth-password" required class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition" placeholder="••••••••">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-xl transition shadow-lg shadow-emerald-600/20 active:scale-[0.98]">
+                        <span id="auth-submit-btn-text">Masuk</span>
+                    </button>
+                </div>
+            </form>
+
+            <div class="mt-6 text-center text-sm text-slate-600">
+                <span id="auth-switch-prompt">Belum punya akun?</span>
+                <button onclick="toggleAuthMode()" class="text-emerald-600 hover:underline font-semibold ml-1 focus:outline-none" id="auth-switch-btn">Daftar Sekarang</button>
+            </div>
+
+            <!-- Demo Account Info -->
+            <div class="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200/50 text-xs text-amber-800">
+                <p class="font-semibold mb-1"><i class="fa-solid fa-circle-info mr-1"></i> Kredensial Demo Instan:</p>
+                <p>Username: <code class="bg-amber-100 px-1 rounded font-mono font-bold text-amber-900">admin</code> | Sandi: <code class="bg-amber-100 px-1 rounded font-mono font-bold text-amber-900">admin123</code></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Utama (Setelah Login) -->
+    <div id="dashboard-screen" class="hidden flex-1 flex flex-col">
+        <!-- Navigasi Atas -->
+        <nav class="bg-white border-b border-slate-200 sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center gap-2">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-md shadow-emerald-600/20">
+                            <i class="fa-solid fa-leaf"></i>
+                        </div>
+                        <span class="text-xl font-bold bg-gradient-to-r bg-clip-text text-transparent from-emerald-600 to-teal-600">FreshHub</span>
+                    </div>
+
+                    <div class="flex items-center gap-4">
+                        <div class="hidden md:flex flex-col text-right">
+                            <span class="text-sm font-semibold text-slate-800" id="user-display-name">User</span>
+                            <span class="text-xs text-slate-400">Petugas Gudang</span>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center border border-slate-200">
+                            <i class="fa-solid fa-user-tie"></i>
+                        </div>
+                        <button onclick="logout()" class="p-2 text-slate-400 hover:text-rose-600 transition duration-150 rounded-lg hover:bg-rose-50" title="Keluar">
+                            <i class="fa-solid fa-right-from-bracket text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Konten Dashboard -->
+        <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+            <!-- Header Halaman & Statistik -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">Sistem Informasi Komoditas</h2>
+                    <p class="text-slate-500 text-sm">Dashboard kelola komoditas harian berbasis REST API</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="syncDataWithAPI()" class="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl text-sm transition active:scale-95 border border-slate-200" title="Sinkronisasi Ulang API">
+                        <i class="fa-solid fa-rotate-right" id="sync-icon"></i> <span class="hidden md:inline">Reset API</span>
+                    </button>
+                    <button onclick="openFormModal()" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 transition duration-150 active:scale-95">
+                        <i class="fa-solid fa-plus"></i> Tambah Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Panel Statistik -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+                    <div>
+                        <span class="block text-slate-400 text-xs font-semibold uppercase tracking-wider">Total Jenis</span>
+                        <span class="text-2xl font-bold text-slate-900" id="stat-total">0</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-apple-whole"></i>
+                    </div>
+                    <div>
+                        <span class="block text-slate-400 text-xs font-semibold uppercase tracking-wider">Komoditas Buah</span>
+                        <span class="text-2xl font-bold text-slate-900" id="stat-buah">0</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-lime-50 text-lime-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-carrot"></i>
+                    </div>
+                    <div>
+                        <span class="block text-slate-400 text-xs font-semibold uppercase tracking-wider">Komoditas Sayur</span>
+                        <span class="text-2xl font-bold text-slate-900" id="stat-sayur">0</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <div>
+                        <span class="block text-slate-400 text-xs font-semibold uppercase tracking-wider">Stok Tipis (&lt; 10 kg)</span>
+                        <span class="text-2xl font-bold text-rose-600" id="stat-low-stock">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Penyaringan & Pencarian -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+                <!-- Kiri: Filter Kategori -->
+                <div class="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                    <button onclick="setFilter('all')" id="btn-filter-all" class="px-4 py-2 rounded-xl text-sm font-semibold transition active:scale-95 bg-emerald-600 text-white shadow-md shadow-emerald-600/10">Semua</button>
+                    <button onclick="setFilter('buah')" id="btn-filter-buah" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition active:scale-95">Buah</button>
+                    <button onclick="setFilter('sayur')" id="btn-filter-sayur" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition active:scale-95">Sayur</button>
+                </div>
+
+                <!-- Kanan: Pencarian -->
+                <div class="relative w-full md:w-80">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" id="search-input" oninput="handleSearch(this.value)" class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition text-sm" placeholder="Cari nama komoditas...">
+                </div>
+            </div>
+
+            <!-- GRID DATA UTAMA -->
+            <div id="empty-state" class="hidden bg-white rounded-2xl border border-dashed border-slate-200 p-12 text-center">
+                <div class="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mx-auto text-slate-400 text-2xl mb-4">
+                    <i class="fa-regular fa-folder-open"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-slate-800">Tidak ada komoditas ditemukan</h3>
+                <p class="text-slate-500 text-sm mt-1">Coba tambahkan item baru atau gunakan filter/pencarian yang berbeda.</p>
+            </div>
+
+            <div id="data-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- Komponen Card di-generate secara dinamis menggunakan JS -->
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-white border-t border-slate-200 py-6 mt-12">
+            <div class="max-w-7xl mx-auto px-4 text-center text-sm text-slate-400 space-y-1">
+                <p class="font-semibold text-slate-600">Pengembang: Haris Sasena (5230411116) &amp; Pipin Wiwid Apriwanty (5230411154)</p>
+                <p>&copy; 2026 FreshHub - Tugas Pemrograman Web CRUD VPS IP: 103.47.224.190/freshhub</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- MODAL FORM (CREATE & UPDATE) -->
+    <div id="form-modal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-100 scale-95 transition-all duration-200">
+            <!-- Header Modal -->
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <h3 id="modal-title" class="text-lg font-bold text-slate-900">Tambah Komoditas Baru</h3>
+                <button onclick="closeFormModal()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Body Modal -->
+            <form id="item-form" onsubmit="handleFormSubmit(event)">
+                <input type="hidden" id="edit-id" value="">
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Nama Buah / Sayur <span class="text-rose-500">*</span></label>
+                        <input type="text" id="item-name" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition" placeholder="Contoh: Apel Malang, Sawi Pakcoy">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Kategori <span class="text-rose-500">*</span></label>
+                            <select id="item-category" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition bg-white">
+                                <option value="buah">Buah</option>
+                                <option value="sayur">Sayur</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Jumlah Stok (kg) <span class="text-rose-500">*</span></label>
+                            <input type="number" id="item-stock" required min="0" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition" placeholder="Contoh: 25">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Harga per kg (Rp) <span class="text-rose-500">*</span></label>
+                            <input type="number" id="item-price" required min="0" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition" placeholder="Contoh: 15000">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Ikon Elemen</label>
+                            <select id="item-icon" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition bg-white">
+                                <option value="fa-apple-whole">🍎 Apel</option>
+                                <option value="fa-lemon">🍋 Lemon / Jeruk</option>
+                                <option value="fa-pepper-hot">🌶️ Cabai / Paprika</option>
+                                <option value="fa-seedling">🌱 Sayuran Hijau</option>
+                                <option value="fa-carrot">🥕 Wortel</option>
+                                <option value="fa-leaf">🥬 Sawi / Kubis</option>
+                                <option value="fa-circle">🔴 Lainnya</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Deskripsi Tambahan</label>
+                        <textarea id="item-desc" rows="3" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition resize-none" placeholder="Tuliskan asal komoditas, kesegaran harian..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Footer Modal -->
+                <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50">
+                    <button type="button" onclick="closeFormModal()" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition text-sm">Batal</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md shadow-emerald-600/10 transition text-sm active:scale-95">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL KONFIRMASI HAPUS (DELETE) -->
+    <div id="delete-modal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-100 scale-95 transition-all duration-200">
+            <div class="p-6 text-center">
+                <div class="w-14 h-14 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center text-xl mx-auto mb-4">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900">Hapus Data Komoditas</h3>
+                <p class="text-slate-500 text-sm mt-2">Apakah Anda yakin ingin menghapus <strong id="delete-item-name" class="text-slate-800"></strong> dari database? Tindakan ini tidak dapat dibatalkan.</p>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-center gap-3 bg-slate-50">
+                <button onclick="closeDeleteModal()" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition text-sm">Batal</button>
+                <button id="confirm-delete-btn" class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-md shadow-rose-600/10 transition text-sm active:scale-95">Ya, Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC WITH MOCK REST API SIMULATOR -->
+    <script>
+        // 1. SIMULASI SERVICE REST API (ASINKRON DENGAN DELAY JARINGAN)
+        class CropAPIService {
+            constructor() {
+                this.defaultData = [
+                    { id: "1", name: "Apel Fuji Premium", category: "buah", stock: 35, price: 42000, icon: "fa-apple-whole", desc: "Manis, segar garing, impor dari Tiongkok dengan kualitas terbaik." },
+                    { id: "2", name: "Sawi Pakcoy Hijau", category: "sayur", stock: 8, price: 9000, icon: "fa-leaf", desc: "Sayuran hidroponik segar, panen harian lokal bebas pestisida." },
+                    { id: "3", name: "Lemon California", category: "buah", stock: 15, price: 28000, icon: "fa-lemon", desc: "Lemon juicy dengan kandungan air melimpah, kaya vitamin C." },
+                    { id: "4", name: "Wortel Berastagi", category: "sayur", stock: 20, price: 15000, icon: "fa-carrot", desc: "Wortel manis lokal, berkualitas tinggi dari daerah Berastagi." },
+                    { id: "5", name: "Cabai Rawit Setan", category: "sayur", stock: 5, price: 65000, icon: "fa-pepper-hot", desc: "Tingkat kepedasan ekstrem, dipasok harian dari distributor regional." }
+                ];
+                
+                // Cek data di LocalStorage, jika belum ada inisialisasi default
+                if (!localStorage.getItem('api_crops_db')) {
+                    localStorage.setItem('api_crops_db', JSON.stringify(this.defaultData));
+                }
+            }
+
+            // Simulasi Delay Latency Jaringan (ms)
+            _delay(ms = 600) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            // GET - Mengambil Semua Item
+            async getAll() {
+                await this._delay();
+                return JSON.parse(localStorage.getItem('api_crops_db'));
+            }
+
+            // POST - Membuat Komoditas Baru
+            async create(item) {
+                await this._delay();
+                const db = JSON.parse(localStorage.getItem('api_crops_db'));
+                const newItem = { ...item, id: Date.now().toString() };
+                db.unshift(newItem);
+                localStorage.setItem('api_crops_db', JSON.stringify(db));
+                return newItem;
+            }
+
+            // PUT - Memperbarui Komoditas
+            async update(id, updatedData) {
+                await this._delay();
+                const db = JSON.parse(localStorage.getItem('api_crops_db'));
+                const index = db.findIndex(item => item.id === id);
+                if (index !== -1) {
+                    db[index] = { ...db[index], ...updatedData };
+                    localStorage.setItem('api_crops_db', JSON.stringify(db));
+                    return db[index];
+                }
+                throw new Error("Item tidak ditemukan");
+            }
+
+            // DELETE - Menghapus Komoditas
+            async delete(id) {
+                await this._delay();
+                let db = JSON.parse(localStorage.getItem('api_crops_db'));
+                const index = db.findIndex(item => item.id === id);
+                if (index !== -1) {
+                    const deletedItem = db[index];
+                    db = db.filter(item => item.id !== id);
+                    localStorage.setItem('api_crops_db', JSON.stringify(db));
+                    return deletedItem;
+                }
+                throw new Error("Item gagal dihapus karena tidak ditemukan");
+            }
+
+            // RESET - Mengembalikan data awal dari API
+            async reset() {
+                await this._delay(1000);
+                localStorage.setItem('api_crops_db', JSON.stringify(this.defaultData));
+                return this.defaultData;
+            }
+        }
+
+        // 2. STATE DAN INISIALISASI
+        const apiService = new CropAPIService();
+
+        let state = {
+            currentUser: JSON.parse(localStorage.getItem('freshhub_user')) || null,
+            items: [],
+            currentFilter: 'all',
+            searchQuery: '',
+            deleteTargetId: null
+        };
+
+        // UI Helpers
+        function showLoading(text) {
+            document.getElementById('loading-text').textContent = text;
+            document.getElementById('api-loading-overlay').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('api-loading-overlay').classList.add('hidden');
+        }
+
+        // 3. RETRIEVE DATA DARI API
+        async function fetchCropsFromAPI() {
+            showLoading("Memuat data dari API...");
+            try {
+                state.items = await apiService.getAll();
+                renderItems();
+                updateStats();
+            } catch (error) {
+                showToast("Gagal mengambil data dari API", "error");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function syncDataWithAPI() {
+            showLoading("Mengembalikan data default dari REST API...");
+            try {
+                state.items = await apiService.reset();
+                renderItems();
+                updateStats();
+                showToast("Berhasil me-reset basis data ke state awal API!", "success");
+            } catch (error) {
+                showToast("Gagal me-reset API", "error");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 4. AUTENTIKASI KLIEN & REGISTRASI
+        function toggleAuthMode() {
+            const mode = document.getElementById('auth-mode');
+            const title = document.getElementById('auth-title');
+            const subtitle = document.getElementById('auth-subtitle');
+            const submitBtnText = document.getElementById('auth-submit-btn-text');
+            const nameField = document.getElementById('name-field-group');
+            const prompt = document.getElementById('auth-switch-prompt');
+            const btn = document.getElementById('auth-switch-btn');
+
+            if (mode.value === 'login') {
+                mode.value = 'register';
+                title.textContent = 'Daftar Akun Baru';
+                subtitle.textContent = 'Isi form di bawah untuk membuat akun baru';
+                submitBtnText.textContent = 'Daftar';
+                nameField.classList.remove('hidden');
+                prompt.textContent = 'Sudah memiliki akun?';
+                btn.textContent = 'Masuk Sekarang';
+            } else {
+                mode.value = 'login';
+                title.textContent = 'Masuk ke FreshHub';
+                subtitle.textContent = 'Kelola stok buah & sayur segar Anda';
+                submitBtnText.textContent = 'Masuk';
+                nameField.classList.add('hidden');
+                prompt.textContent = 'Belum punya akun?';
+                btn.textContent = 'Daftar Sekarang';
+            }
+        }
+
+        function handleAuthSubmit(event) {
+            event.preventDefault();
+            const mode = document.getElementById('auth-mode').value;
+            const username = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value;
+            const name = document.getElementById('auth-name').value.trim() || 'Administrator';
+
+            if (mode === 'login') {
+                const registeredUsers = JSON.parse(localStorage.getItem('freshhub_registered')) || [];
+                const matchedUser = registeredUsers.find(u => u.username === username && u.password === password);
+
+                if ((username === 'admin' && password === 'admin123') || matchedUser) {
+                    const finalName = matchedUser ? matchedUser.name : 'Administrator';
+                    state.currentUser = { username, name: finalName };
+                    localStorage.setItem('freshhub_user', JSON.stringify(state.currentUser));
+                    showToast('Selamat datang kembali, ' + finalName + '!', 'success');
+                    renderApp();
+                } else {
+                    showToast('Kredensial salah! Pastikan sandi sudah benar.', 'error');
+                }
+            } else {
+                let registeredUsers = JSON.parse(localStorage.getItem('freshhub_registered')) || [];
+                if (registeredUsers.some(u => u.username === username)) {
+                    showToast('Username sudah dipakai orang lain!', 'error');
+                    return;
+                }
+                
+                registeredUsers.push({ username, password, name });
+                localStorage.setItem('freshhub_registered', JSON.stringify(registeredUsers));
+                showToast('Pendaftaran sukses! Silakan login.', 'success');
+                toggleAuthMode();
+            }
+        }
+
+        function logout() {
+            state.currentUser = null;
+            localStorage.removeItem('freshhub_user');
+            showToast('Sesi kerja diakhiri secara aman.', 'success');
+            renderApp();
+        }
+
+        // 5. PENANGAN TOAST NOTIFIKASI
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const bgClass = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-rose-600' : 'bg-slate-700';
+            const iconClass = type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-circle-xmark' : 'fa-circle-info';
+
+            toast.className = `${bgClass} text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 transition duration-300 transform translate-y-2 opacity-0 text-sm max-w-sm`;
+            toast.innerHTML = `
+                <i class="fa-solid ${iconClass}"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-[-10px]');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // 6. RENDER DATA GRID
+        function renderItems() {
+            const grid = document.getElementById('data-grid');
+            const emptyState = document.getElementById('empty-state');
+            grid.innerHTML = '';
+
+            let filteredItems = state.items;
+            if (state.currentFilter !== 'all') {
+                filteredItems = filteredItems.filter(item => item.category === state.currentFilter);
+            }
+            if (state.searchQuery) {
+                const query = state.searchQuery.toLowerCase();
+                filteredItems = filteredItems.filter(item => 
+                    item.name.toLowerCase().includes(query) || 
+                    (item.desc && item.desc.toLowerCase().includes(query))
+                );
+            }
+
+            if (filteredItems.length === 0) {
+                grid.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                grid.classList.remove('hidden');
+                emptyState.classList.add('hidden');
+            }
+
+            filteredItems.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col justify-between";
+                
+                const isLowStock = item.stock < 10;
+                const stockColor = isLowStock ? 'text-rose-600 bg-rose-50 border border-rose-100' : 'text-slate-500 bg-slate-50 border border-slate-100';
+                
+                const formattedPrice = new Intl.NumberFormat('id-ID', {
+                    style: 'currency',
+                    currency: 'IDR',
+                    maximumFractionDigits: 0
+                }).format(item.price);
+
+                card.innerHTML = `
+                    <div class="p-5 flex-1">
+                        <div class="flex items-start justify-between">
+                            <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm ${item.category === 'buah' ? 'bg-amber-50 text-amber-600' : 'bg-lime-50 text-lime-600'}">
+                                <i class="fa-solid ${item.icon || 'fa-seedling'}"></i>
+                            </div>
+                            <span class="text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${item.category === 'buah' ? 'bg-amber-100 text-amber-800' : 'bg-lime-100 text-lime-800'}">
+                                ${item.category}
+                            </span>
+                        </div>
+
+                        <div class="mt-4">
+                            <h4 class="font-bold text-slate-800 text-lg">${item.name}</h4>
+                            <p class="text-slate-400 text-xs mt-1 min-h-[32px] line-clamp-2">${item.desc || 'Tidak ada deskripsi.'}</p>
+                        </div>
+
+                        <div class="mt-4 flex justify-between items-center bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                            <div>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Harga per kg</span>
+                                <span class="font-bold text-slate-900">${formattedPrice}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Stok</span>
+                                <span class="text-xs font-bold ${stockColor} px-2 py-0.5 rounded-lg inline-block">
+                                    ${item.stock} kg
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-5 py-4 border-t border-slate-50 bg-slate-50/20 flex gap-2 justify-end">
+                        <button onclick="editItem('${item.id}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition active:scale-95">
+                            <i class="fa-solid fa-pen-to-square"></i> Edit
+                        </button>
+                        <button onclick="openDeleteModal('${item.id}', '${item.name}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 transition active:scale-95">
+                            <i class="fa-solid fa-trash-can"></i> Hapus
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // 7. PERBARUI STATISTIK
+        function updateStats() {
+            const total = state.items.length;
+            const totalBuah = state.items.filter(item => item.category === 'buah').length;
+            const totalSayur = state.items.filter(item => item.category === 'sayur').length;
+            const lowStock = state.items.filter(item => item.stock < 10).length;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-buah').textContent = totalBuah;
+            document.getElementById('stat-sayur').textContent = totalSayur;
+            document.getElementById('stat-low-stock').textContent = lowStock;
+        }
+
+        // 8. MODAL FORM CONTROL
+        function openFormModal() {
+            document.getElementById('item-form').reset();
+            document.getElementById('edit-id').value = '';
+            document.getElementById('modal-title').textContent = 'Tambah Komoditas Baru';
+            
+            const modal = document.getElementById('form-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.firstElementChild.classList.remove('scale-95');
+                modal.firstElementChild.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeFormModal() {
+            const modal = document.getElementById('form-modal');
+            modal.firstElementChild.classList.remove('scale-100');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 100);
+        }
+
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+            const editId = document.getElementById('edit-id').value;
+            const name = document.getElementById('item-name').value.trim();
+            const category = document.getElementById('item-category').value;
+            const stock = parseInt(document.getElementById('item-stock').value, 10);
+            const price = parseInt(document.getElementById('item-price').value, 10);
+            const icon = document.getElementById('item-icon').value;
+            const desc = document.getElementById('item-desc').value.trim();
+
+            const itemPayload = { name, category, stock, price, icon, desc };
+
+            closeFormModal();
+
+            if (editId) {
+                // UPDATE VIA API
+                showLoading("Memperbarui data komoditas...");
+                try {
+                    await apiService.update(editId, itemPayload);
+                    showToast(`Komoditas "${name}" berhasil diperbarui!`, 'success');
+                } catch (error) {
+                    showToast(error.message, 'error');
+                } finally {
+                    hideLoading();
+                }
+            } else {
+                // CREATE VIA API
+                showLoading("Menambahkan data ke server...");
+                try {
+                    await apiService.create(itemPayload);
+                    showToast(`Komoditas "${name}" berhasil dibuat harian!`, 'success');
+                } catch (error) {
+                    showToast("Gagal menyimpan ke API", 'error');
+                } finally {
+                    hideLoading();
+                }
+            }
+
+            // Segarkan data dari API
+            fetchCropsFromAPI();
+        }
+
+        // Ambil data terpilih untuk diletakkan di form
+        function editItem(id) {
+            const item = state.items.find(item => item.id === id);
+            if (!item) return;
+
+            document.getElementById('edit-id').value = item.id;
+            document.getElementById('item-name').value = item.name;
+            document.getElementById('item-category').value = item.category;
+            document.getElementById('item-stock').value = item.stock;
+            document.getElementById('item-price').value = item.price;
+            document.getElementById('item-icon').value = item.icon;
+            document.getElementById('item-desc').value = item.desc || '';
+
+            document.getElementById('modal-title').textContent = 'Edit Komoditas: ' + item.name;
+            
+            const modal = document.getElementById('form-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.firstElementChild.classList.remove('scale-95');
+                modal.firstElementChild.classList.add('scale-100');
+            }, 10);
+        }
+
+        // 9. MODAL HAPUS CONTROL
+        function openDeleteModal(id, name) {
+            state.deleteTargetId = id;
+            document.getElementById('delete-item-name').textContent = name;
+            
+            const modal = document.getElementById('delete-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.firstElementChild.classList.remove('scale-95');
+                modal.firstElementChild.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeDeleteModal() {
+            const modal = document.getElementById('delete-modal');
+            modal.firstElementChild.classList.remove('scale-100');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                state.deleteTargetId = null;
+            }, 100);
+        }
+
+        // Aksi tombol konfirmasi hapus permanen
+        document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+            if (state.deleteTargetId) {
+                const targetId = state.deleteTargetId;
+                const itemToDelete = state.items.find(item => item.id === targetId);
+                const name = itemToDelete ? itemToDelete.name : '';
+                
+                closeDeleteModal();
+                showLoading("Menghapus entri dari API...");
+
+                try {
+                    await apiService.delete(targetId);
+                    showToast(`Komoditas "${name}" berhasil dihapus dari API.`, 'success');
+                } catch (error) {
+                    showToast(error.message, 'error');
+                } finally {
+                    hideLoading();
+                }
+
+                // Segarkan data dari API
+                fetchCropsFromAPI();
+            }
+        });
+
+        // 10. FILTER & PENCARIAN CONTROL
+        function setFilter(category) {
+            state.currentFilter = category;
+            
+            ['all', 'buah', 'sayur'].forEach(cat => {
+                const btn = document.getElementById(`btn-filter-${cat}`);
+                if (cat === category) {
+                    btn.className = "px-4 py-2 rounded-xl text-sm font-semibold transition active:scale-95 bg-emerald-600 text-white shadow-md shadow-emerald-600/10";
+                } else {
+                    btn.className = "px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition active:scale-95";
+                }
+            });
+
+            renderItems();
+        }
+
+        function handleSearch(query) {
+            state.searchQuery = query;
+            renderItems();
+        }
+
+        // 11. CENTRAL DISPLAY CONTROLLER
+        function renderApp() {
+            const authScreen = document.getElementById('auth-screen');
+            const dashboardScreen = document.getElementById('dashboard-screen');
+
+            if (state.currentUser) {
+                authScreen.classList.add('hidden');
+                dashboardScreen.classList.remove('hidden');
+                document.getElementById('user-display-name').textContent = state.currentUser.name;
+                fetchCropsFromAPI();
+            } else {
+                authScreen.classList.remove('hidden');
+                dashboardScreen.classList.add('hidden');
+                document.getElementById('auth-form').reset();
+            }
+        }
+
+        window.onload = function() {
+            renderApp();
+        };
+    </script>
+</body>
+</html>
